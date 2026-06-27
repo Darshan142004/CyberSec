@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="dark">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description"
+        content="Identity Sprawl Detector: real-time cross-platform identity risk detection across Active Directory, AWS IAM, and Okta.">
+    <title>Identity Sprawl Detector | SG Cybersecurity</title>
+    <link rel="icon" href="/static/favicon.ico" type="image/x-icon">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.datatables.net/1.13.7/css/dataTables.bootstrap5.min.css" rel="stylesheet">
+    <link href="/static/css/style.css" rel="stylesheet">
+</head>
+
+<body>
+    <!-- Header -->
+    <nav class="navbar navbar-dark bg-dark border-bottom border-danger px-4">
+        <div class="d-flex align-items-center">
+            <span class="navbar-brand mb-0 h4">
+                <span class="text-danger">&#9632;</span> Identity Sprawl Detector
+            </span>
+
+        </div>
+        <div class="d-flex align-items-center gap-3">
+            <div id="header-stats" class="d-flex gap-3"></div>
+            <button class="btn btn-sm btn-outline-info" onclick="openComplianceReport()">Compliance Report</button>
+            <button class="btn btn-sm btn-outline-warning" onclick="openRiskReport()">Risk Report</button>
+        </div>
+    </nav>
+
+    <!-- Executive Summary Bar -->
+    <div id="summary-bar" class="container-fluid py-2 bg-dark border-bottom border-secondary">
+        <div class="row text-center" id="summary-cards"></div>
+    </div>
+
+    <!-- Main Content: 4-panel layout -->
+    <div class="container-fluid mt-3">
+        <div class="row g-3">
+            <!-- Left Panel: Privilege Graph -->
+            <div class="col-lg-7">
+                <div class="card bg-dark border-secondary h-100">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h6 class="mb-0">Privilege Graph</h6>
+                        <div class="btn-group btn-group-sm">
+                            <button class="btn btn-outline-light active" id="btn-graph-full">Full</button>
+                            <button class="btn btn-outline-light" id="btn-graph-risky">Risky Only</button>
+                        </div>
+                    </div>
+                    <div class="card-body p-0">
+                        <div id="graph-container" style="height: 500px;"></div>
+                    </div>
+                    <div class="card-footer">
+                        <small class="text-muted">
+                            <span class="legend-dot" style="background:#4fc3f7;"></span> Identity
+                            <span class="legend-dot ms-2" style="background:#ef5350;"></span> High Risk
+                            <span class="legend-dot ms-2" style="background:#ab47bc;"></span> Privileged Group
+                            <span class="legend-dot ms-2" style="background:#66bb6a;"></span> Group
+                            <span class="legend-dot ms-2" style="background:#78909c;"></span> Permission
+                        </small>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Panel: Identity Detail -->
+            <div class="col-lg-5">
+                <div class="card bg-dark border-secondary h-100">
+                    <div class="card-header">
+                        <h6 class="mb-0">Identity Detail</h6>
+                    </div>
+                    <div class="card-body" id="identity-detail">
+                        <div class="text-center text-muted py-5">
+                            <p>Click an identity node in the graph to inspect</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Bottom Panel: Risk Register -->
+        <div class="row mt-3">
+            <div class="col-12">
+                <div class="card bg-dark border-secondary">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h6 class="mb-0">Risk Register</h6>
+                        <div class="d-flex gap-2">
+                            <select id="filter-category"
+                                class="form-select form-select-sm bg-dark text-light border-secondary"
+                                style="width:auto;">
+                                <option value="">All Categories</option>
+                                <option value="OrphanedAccount">Orphaned Account</option>
+                                <option value="DormantAdmin">Dormant Admin</option>
+                                <option value="PrivilegeSpike">Privilege Spike</option>
+                                <option value="CrossPlatformMismatch">Cross-Platform Mismatch</option>
+                                <option value="OffboardingFailure">Offboarding Failure</option>
+                                <option value="ExcessivePermissions">Excessive Permissions</option>
+                                <option value="TokenAbuse">Token/Credential Abuse</option>
+                                <option value="UnusedPermissions">Unused Permissions</option>
+                            </select>
+                            <select id="filter-severity"
+                                class="form-select form-select-sm bg-dark text-light border-secondary"
+                                style="width:auto;">
+                                <option value="">All Severities</option>
+                                <option value="critical">Critical</option>
+                                <option value="high">High</option>
+                                <option value="medium">Medium</option>
+                                <option value="low">Low</option>
+                            </select>
+                            <a href="/api/export/csv" class="btn btn-sm btn-outline-success" download
+                                title="Download full risk register as CSV (pandas-powered)">
+                                ⬇ Export CSV
+                            </a>
+                        </div>
+                    </div>
+                    <div class="card-body p-0">
+                        <div class="table-responsive">
+                            <table id="risk-table" class="table table-dark table-hover table-sm mb-0">
+                                <thead>
+                                    <tr>
+                                        <th>Score</th>
+                                        <th>Severity</th>
+                                        <th>Category</th>
+                                        <th>Title</th>
+                                        <th>Platform</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="risk-table-body"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Analytics / Plotly Charts -->
+        <div class="row mt-3" id="charts-section">
+            <div class="col-12">
+                <div class="card bg-dark border-secondary">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h6 class="mb-0">📊 Analytics <small class="text-muted ms-2" style="font-size:0.7rem;">powered
+                                by Plotly + Pandas</small></h6>
+                        <button class="btn btn-sm btn-link text-muted" onclick="toggleCharts()"
+                            id="btn-toggle-charts">Hide</button>
+                    </div>
+                    <div class="card-body" id="charts-body">
+                        <div class="row g-3">
+                            <div class="col-lg-3 col-md-6">
+                                <div id="chart-severity" style="height:260px;"></div>
+                            </div>
+                            <div class="col-lg-3 col-md-6">
+                                <div id="chart-category" style="height:260px;"></div>
+                            </div>
+                            <div class="col-lg-3 col-md-6">
+                                <div id="chart-department" style="height:260px;"></div>
+                            </div>
+                            <div class="col-lg-3 col-md-6">
+                                <div id="chart-score-dist" style="height:260px;"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Incidents Panel -->
+        <div class="row mt-3 mb-4">
+            <div class="col-12">
+                <div class="card bg-dark border-secondary">
+                    <div class="card-header">
+                        <h6 class="mb-0">Clustered Incidents</h6>
+                    </div>
+                    <div class="card-body">
+                        <div id="incidents-list"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- Remediation Modal -->
+    <div class="modal fade" id="remediationModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content bg-dark border-secondary">
+                <div class="modal-header border-secondary">
+                    <h5 class="modal-title">Remediation Commands</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body" id="remediation-content"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Compliance Report Modal -->
+    <div class="modal fade" id="complianceModal" tabindex="-1">
+        <div class="modal-dialog modal-xl">
+            <div class="modal-content bg-dark border-secondary">
+                <div class="modal-header border-secondary">
+                    <h5 class="modal-title">Compliance & MITRE ATT&CK Mapping</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body" id="compliance-content">
+                    <div class="loading-spinner"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Risk Report Modal -->
+    <div class="modal fade" id="riskReportModal" tabindex="-1">
+        <div class="modal-dialog modal-xl">
+            <div class="modal-content bg-dark border-secondary">
+                <div class="modal-header border-secondary">
+                    <h5 class="modal-title">Identity Sprawl Risk Assessment Report</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body" id="risk-report-content">
+                    <div class="loading-spinner"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <script src="https://cdn.datatables.net/1.13.7/js/jquery.dataTables.min.js"></script>
+    <script src="https://cdn.datatables.net/1.13.7/js/dataTables.bootstrap5.min.js"></script>
+    <script src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
+    <script src="https://cdn.plot.ly/plotly-2.26.0.min.js"></script>
+    <script src="/static/js/graph.js"></script>
+    <script src="/static/js/risk_table.js"></script>
+    <script src="/static/js/identity_detail.js"></script>
+    <script src="/static/js/charts.js"></script>
+    <script src="/static/js/app.js"></script>
+    
+    <!-- Fixed Author Credit -->
+    <div class="author-credit">
+        By <span style="color: var(--accent-blue); font-weight: 600;">Darshan SB</span>
+    </div>
+</body>
+
+</html>
