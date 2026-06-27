@@ -16,10 +16,11 @@ def detect_risks(unified_identities, people, audit_events=None):
     findings = []
     people_emails = {p["email"] for p in people if not p["terminated"]}
     terminated_emails = {p["email"] for p in people if p["terminated"]}
+    hr_emails = {p["email"] for p in people}
     audit_events = audit_events or []
 
     for identity in unified_identities:
-        findings.extend(_detect_orphaned(identity, people_emails))
+        findings.extend(_detect_orphaned(identity, hr_emails))
         findings.extend(_detect_dormant_admin(identity))
         findings.extend(_detect_privilege_spike(identity))
         findings.extend(_detect_cross_platform_mismatch(identity))
@@ -43,10 +44,10 @@ def detect_risks(unified_identities, people, audit_events=None):
     return findings
 
 
-def _detect_orphaned(identity, known_emails):
+def _detect_orphaned(identity, hr_emails):
     """Rule 1: Accounts with no matching HR record."""
     findings = []
-    if identity.primary_email and identity.primary_email not in known_emails:
+    if identity.primary_email and identity.primary_email not in hr_emails:
         for platform, account in identity.platform_accounts.items():
             if account.status == AccountStatus.ACTIVE and not account.is_service_account:
                 # Skip accounts with documented justification
@@ -297,6 +298,8 @@ def _detect_unused_permissions(identity):
     findings = []
 
     for platform, account in identity.platform_accounts.items():
+        if not account.is_admin:
+            continue
         if not account.granted_permissions or account.status != AccountStatus.ACTIVE:
             continue
         if account.justification:

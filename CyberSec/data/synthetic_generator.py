@@ -139,7 +139,7 @@ def _create_ad_account(person):
     is_admin = person["department"] in ["IT", "Security"] and random.random() < 0.3
 
     status = AccountStatus.ACTIVE
-    if person["terminated"] and random.random() < 0.6:
+    if person["terminated"]:
         status = AccountStatus.DISABLED
 
     return PlatformIdentity(
@@ -177,7 +177,7 @@ def _create_aws_account(person):
         roles = random.sample(["ReadOnlyAccess", "S3FullAccess", "BillingAccess"], k=random.randint(1, 2))
 
     status = AccountStatus.ACTIVE
-    if person["terminated"] and random.random() < 0.5:
+    if person["terminated"]:
         status = AccountStatus.DISABLED
 
     return PlatformIdentity(
@@ -208,7 +208,7 @@ def _create_okta_account(person):
     is_admin = person["department"] in ["IT", "Security"] and random.random() < 0.15
 
     status = AccountStatus.ACTIVE
-    if person["terminated"] and random.random() < 0.7:
+    if person["terminated"]:
         status = AccountStatus.SUSPENDED
 
     return PlatformIdentity(
@@ -316,7 +316,7 @@ def _assign_permission_usage(accounts, platform_key):
 def _assign_access_tokens(accounts, platform):
     """Assign API tokens to accounts."""
     for account in accounts:
-        if random.random() < 0.4:  # 40% have tokens
+        if random.random() < 0.06:  # 6% have tokens
             num_tokens = random.randint(1, 3)
             tokens = []
             for _ in range(num_tokens):
